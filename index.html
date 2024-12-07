@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Interface</title>
+    <!-- 添加网页图标 -->
+    <link rel="icon" type="image/png" href="favicon.png">
+    <!-- 或者使用 emoji 作为图标 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 背景轮播 -->
+    <div class="background-slider">
+        <div class="slide" style="background-image: url('images/bg01.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg02.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg03.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg04.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg05.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg06.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg07.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg08.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg09.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg10.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg11.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg12.jpg')"></div>
+        <div class="slide" style="background-image: url('images/bg13.jpg')"></div>
+    </div>
+
+    <!-- 主要界面 -->
+    <div class="chat-container">
+        <!-- 聊天框 -->
+        <div class="chat-box">
+            <div class="chat-header">
+                <button id="toggleChat" class="toggle-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+                <div class="chat-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+            </div>
+            <div class="chat-content">
+                <div id="chatContent" class="chat-messages-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message system">
+                            <div class="message-content">
+                                👋 你好！我是AI助手，很高兴为你服务。
+                            </div>
+                        </div>
+                    </div>
+                    <div class="input-area">
+                        <textarea id="userInput" placeholder="输入消息..." rows="1"></textarea>
+                        <button id="sendButton">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏框 -->
+        <div class="game-box collapsed" style="display: none;">
+            <div class="game-header">
+                <div class="game-icon">
+                    <i class="fas fa-gamepad"></i>
+                </div>
+                <button id="toggleGame" class="toggle-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="game-content">
+                <!-- 游戏容器 -->
+                <div id="gameContainer" class="game-container">
+                    <!-- 游戏菜单 -->
+                    <div class="game-menu">
+                        <h2>选择游戏</h2>
+                        <div class="game-options">
+                            <div class="game-option" data-game="snake">
+                                <i class="fas fa-dragon"></i>
+                                <span>贪吃蛇</span>
+                            </div>
+                            <div class="game-option" data-game="minesweeper">
+                                <i class="fas fa-bomb"></i>
+                                <span>扫雷</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 贪吃蛇游戏 -->
+                    <div id="snakeGame" class="game" style="display: none;">
+                        <canvas id="snakeCanvas"></canvas>
+                        <div class="game-controls">
+                            <button class="start-btn" id="startSnake">
+                                <i class="fas fa-play"></i>
+                                <span>开始</span>
+                            </button>
+                            <div class="score-display">
+                                分数: <span id="snakeScore">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 扫雷游戏 -->
+                    <div id="minesweeperGame" class="game" style="display: none;">
+                        <div id="minesweeperBoard"></div>
+                        <div class="game-controls">
+                            <div class="score-display">
+                                剩余雷数: <span id="minesLeft">10</span>
+                            </div>
+                            <button id="startMinesweeper" class="start-btn">
+                                <i class="fas fa-redo"></i>
+                                <span>重新开始</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快捷按钮 -->
+        <div class="quick-buttons">
+            <button class="quick-btn game-quick-btn" id="openGame">
+                <i class="fas fa-gamepad"></i>
+            </button>
+            <button class="quick-btn chat-quick-btn" id="openChat">
+                <i class="fas fa-comments"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer>
+        <div class="footer-content">
+            <div class="social-links">
+                <a href="https://weixin.qq.com/" target="_blank" title="微"><i class="fab fa-weixin"></i></a>
+                <a href="https://im.qq.com/" target="_blank" title="QQ"><i class="fab fa-qq"></i></a>
+                <a href="https://weibo.com/" target="_blank" title="微博"><i class="fab fa-weibo"></i></a>
+                <a href="https://www.alipay.com/" target="_blank" title="支付宝"><i class="fab fa-alipay"></i></a>
+                <a href="https://www.douyin.com/" target="_blank" title="抖音"><i class="fas fa-music"></i></a>
+                <a href="https://www.bilibili.com/" target="_blank" title="哔哩哔哩"><i class="fas fa-play-circle"></i></a>
+                <a href="https://www.taobao.com/" target="_blank" title="淘宝"><i class="fas fa-shopping-cart"></i></a>
+                <a href="https://www.zhihu.com/" target="_blank" title="知乎"><i class="fas fa-question-circle"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>

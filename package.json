@@ -1,0 +1,13 @@
+{
+  "name": "chat-interface",
+  "version": "1.0.0",
+  "description": "Chat Interface with Games",
+  "main": "index.js",
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  },
+  "scripts": {
+    "build": "mkdir -p public && cp -r *.html *.js *.css images public/",
+    "vercel-build": "npm run build"
+  }
+} 
