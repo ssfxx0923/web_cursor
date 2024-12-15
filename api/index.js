@@ -18,7 +18,7 @@ const API_CONFIG = {
         }),
         formatRequest: (messages) => ({
             messages,
-            model: 'linkai-4o-mini',
+            model: 'claude-3-sonnet',
             stream: true
         }),
         handleError: (error) => {
@@ -80,7 +80,7 @@ const API_CONFIG = {
                 },
                 ...messages
             ],
-            model: "grok-beta",
+            model: "grok-2-vision-1212",
             stream: true,
             temperature: 0.7
         }),
