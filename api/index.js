@@ -10,7 +10,7 @@ const agent = new https.Agent({
 // 配置不同模型的API端点和密钥
 const API_CONFIG = {
     'linkai': {
-        url: 'https://api.link-ai.chat/v1/chat/completions',
+        url: 'https://api.link-ai.tech/v1/chat/completions',
         key: process.env.LINKAI_API_KEY,
         headers: (key) => ({
             'Authorization': `Bearer ${key}`,
@@ -18,17 +18,29 @@ const API_CONFIG = {
         }),
         formatRequest: (messages) => ({
             messages,
-            model: 'JKAxbjsF',
+            app_code: 'JKAxbjsF',
+            model: 'LinkAI-4o-mini',
             temperature: 0.7,
-            stream: true,
-            max_tokens: 2000
+            stream: true
         }),
         handleError: (error) => {
             console.error('LinkAI Error:', error);
-            if (error.message?.includes('API key')) {
-                return 'Link-AI 服务暂时不可用，请检查 API 密钥配置';
+            switch(error.status) {
+                case 401:
+                    return 'API密钥无效，请检查配置';
+                case 402:
+                    return '应用不存在，请检查app_code';
+                case 403:
+                    return '无访问权限';
+                case 406:
+                    return '账号积分额度不足';
+                case 409:
+                    return '内容审核不通过';
+                case 503:
+                    return '服务暂时不可用，请联系客服';
+                default:
+                    return error.message || '请求失败，请稍后重试';
             }
-            return error.message || '服务暂时不可用，请稍后再试';
         }
     },
     'claude': {

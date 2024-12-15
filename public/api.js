@@ -34,11 +34,6 @@ async function sendToCeok(message, sessionId) {
 
 async function sendToAI(messages, model) {
     try {
-        console.log(`Sending ${model} request:`, {
-            messageCount: messages.length,
-            model
-        });
-
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
@@ -47,15 +42,8 @@ async function sendToAI(messages, model) {
             body: JSON.stringify({
                 messages: messages,
                 model: model
-            }),
-            credentials: 'same-origin'
+            })
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`API Error (${response.status}):`, errorText);
-            throw new Error('API 请求失败，请检查配置或稍后重试');
-        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -63,9 +51,8 @@ async function sendToAI(messages, model) {
         return {
             async *[Symbol.asyncIterator]() {
                 try {
-                    let responseText = '';
                     while (true) {
-                        const {done, value} = await reader.read();
+                        const { done, value } = await reader.read();
                         if (done) break;
                         
                         const chunk = decoder.decode(value);
@@ -77,28 +64,22 @@ async function sendToAI(messages, model) {
                             if (line.startsWith('data: ')) {
                                 try {
                                     const data = JSON.parse(line.slice(6));
-                                    if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
-                                        const content = data.choices[0].delta.content;
-                                        responseText += content;
-                                        yield content;
+                                    if (data.error) {
+                                        throw new Error(data.error.message);
+                                    }
+                                    if (data.choices?.[0]?.delta?.content) {
+                                        yield data.choices[0].delta.content;
                                     }
                                 } catch (e) {
+                                    if (e.message) throw e;
                                     console.warn('Failed to parse line:', line, e);
-                                    continue;
                                 }
                             }
                         }
                     }
-                    // 将AI的回复添加到对应模型的历史记录中
-                    if (responseText) {
-                        messageHistories[model].push({
-                            role: "assistant",
-                            content: responseText
-                        });
-                    }
                 } catch (error) {
                     console.error('Stream error:', error);
-                    throw new Error('连接中断，请刷新页面重试');
+                    throw error;
                 }
             }
         };

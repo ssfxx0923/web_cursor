@@ -31,89 +31,57 @@ app.post('/api/chat', async (req, res) => {
         const config = API_CONFIG[model];
 
         if (!config) {
-            return res.status(400).json({ error: 'Unsupported model' });
+            return res.status(400).json({ 
+                error: {
+                    message: "不支持的模型",
+                    type: "invalid_request_error"
+                }
+            });
         }
 
         if (!config.key) {
             console.error(`Missing API key for model: ${model}`);
-            return res.status(503).json({ 
-                error: 'Service configuration error',
-                message: `${model} 服务未正确配置，请检查 API 密钥`
+            return res.status(401).json({ 
+                error: {
+                    message: "API密钥未配置",
+                    type: "invalid_api_key"
+                }
             });
         }
 
-        // 打印请求信息（不包含敏感信息）
-        console.log(`Sending request to ${model}:`, {
-            url: config.url,
-            messageCount: messages.length
-        });
-
-        let headers = {
-            'Content-Type': 'application/json'
-        };
-
-        // 根据不同模型配置不同的请求头和请求体
-        let requestBody;
-        if (model === 'claude-3-sonnet') {
-            headers['x-api-key'] = config.key;
-            headers['anthropic-version'] = '2023-06-01';
-            requestBody = {
-                messages: messages,
-                model: 'claude-3-sonnet',
-                stream: true,
-                max_tokens: 1000
-            };
-        } else if (model === 'ceok-2') {
-            headers['Authorization'] = `Bearer ${config.key}`;
-            requestBody = {
-                messages: messages,
-                model: 'ceok-2',
-                stream: true
-            };
-        } else {
-            // LinkAI
-            headers['Authorization'] = `Bearer ${config.key}`;
-            requestBody = {
-                messages: messages,
-                model: 'linkai-4o-mini',
-                stream: true
-            };
-        }
-
-        // 设置响应头以支持流式传输
+        // 设置响应头
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
         const response = await fetch(config.url, {
             method: 'POST',
-            headers: headers,
-            body: JSON.stringify(requestBody)
+            headers: config.headers(config.key),
+            body: JSON.stringify(config.formatRequest(messages))
         });
 
         if (!response.ok) {
-            const error = await response.text();
-            throw new Error(`API request failed: ${error}`);
+            const errorText = await response.text();
+            let errorObj;
+            try {
+                errorObj = JSON.parse(errorText);
+            } catch (e) {
+                errorObj = { message: errorText };
+            }
+            throw { status: response.status, ...errorObj };
         }
 
-        // 转发流式响应
-        const reader = response.body.getReader();
-        
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            const chunk = new TextDecoder().decode(value);
-            res.write(`data: ${chunk}\n\n`);
-        }
+        // 直接转发流式响应
+        response.body.pipe(res);
 
-        res.end();
     } catch (error) {
         console.error('Server error:', error);
-        res.status(500).json({ 
-            error: 'Internal server error',
-            message: '服务器内部错误，请稍后重试'
-        });
+        const errorMessage = config.handleError(error);
+        
+        // 确保以正确的格式返回错误
+        res.write(`data: {"error":{"message":"${errorMessage}"}}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
     }
 });
 
