@@ -80,7 +80,7 @@ const API_CONFIG = {
                 },
                 ...messages
             ],
-            model: "grok-3-vision-1212",
+            model: "grok-vision-beta",
             stream: true,
             temperature: 0.7
         }),
