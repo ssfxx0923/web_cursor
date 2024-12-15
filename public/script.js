@@ -309,7 +309,7 @@ function closeChat(e) {
     
     chatBox.classList.add('collapsed');
     
-    // 清��消息历史
+    // 清除消息历史
     clearMessageHistory();
     
     setTimeout(() => {
@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         userInput.focus();
     }
     
-    // 初���化事件监听
+    // 初始化事件监听
     initChatEvents();
     
     // 移除快捷按钮的隐藏类
@@ -372,6 +372,27 @@ function initChatEvents() {
     const chatBox = document.querySelector('.chat-box');
     const chatMessages = document.getElementById('chatMessages');
     let keyboardHeight = 0;
+
+    // 添加发送按钮事件监听
+    sendButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSendMessage();
+    });
+
+    // 添加输入框回车事件监听
+    userInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    });
+
+    // 添加输入框自动调整高度
+    userInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
 
     // 处理输入框焦点
     userInput.addEventListener('focus', () => {
@@ -1178,7 +1199,7 @@ function initMinesweeperGame() {
         }, mines.length * 50 + 500);
     }
     
-    // 处理右键���击（插旗）
+    // 处理右键点击（插旗）
     function handleRightClick(row, col) {
         if (gameOver || cells[row][col].classList.contains('revealed')) return;
         
