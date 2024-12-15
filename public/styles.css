@@ -820,7 +820,7 @@ canvas {
     pointer-events: none;
 }
 
-/* 确保游戏框内容不会遮挡按钮 */
+/* 确保游戏框内容不会遮挡按�� */
 .game-content {
     z-index: 1;
 }
@@ -1125,4 +1125,198 @@ canvas {
 .chat-box.collapsed .model-selector {
     opacity: 0;
     pointer-events: none;
+}
+
+/* 舒尔特方格游戏样式 */
+.schulte-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.schulte-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.schulte-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    margin: 10px 0;
+}
+
+.schulte-controls .button-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.schulte-controls button {
+    padding: 6px 12px;
+    font-size: 14px;
+    border-radius: 8px;
+    min-width: 80px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.schulte-controls button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.schulte-controls button i {
+    font-size: 12px;
+}
+
+.timer {
+    font-size: 14px;
+    color: white;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+}
+
+.schulte-board {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 10px;
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 400px;
+}
+
+.schulte-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 5px;
+    user-select: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.schulte-cell:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.schulte-cell.correct {
+    background: rgba(76, 175, 80, 0.3);
+    border-color: rgba(76, 175, 80, 0.5);
+}
+
+.schulte-cell.wrong {
+    animation: wrongCell 0.5s ease;
+}
+
+@keyframes wrongCell {
+    0%, 100% { background: rgba(255, 255, 255, 0.1); }
+    50% { background: rgba(244, 67, 54, 0.3); }
+}
+
+/* 修改控制区域样式，移除重复的背景效果 */
+.schulte-controls {
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    border: none;
+}
+
+/* 确保游戏控制区域不添加额外的背景 */
+#schulteGame .game-controls {
+    background: transparent;
+    backdrop-filter: none;
+    padding: 0;
+    margin: 0;
+    border: none;
+}
+
+/* 修改控制区域样式 */
+.schulte-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 15px 25px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 15px;
+    margin: 10px 0;
+}
+
+.schulte-controls .button-group {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+/* 调整按钮样式 */
+.schulte-controls button {
+    padding: 8px 20px;
+    font-size: 16px;
+    border-radius: 12px;
+    min-width: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.schulte-controls button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.schulte-controls button i {
+    font-size: 14px;
+}
+
+.timer {
+    font-size: 18px;
+    color: white;
+    font-weight: 500;
+    padding: 8px 15px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }

@@ -36,9 +36,9 @@
             <div class="chat-header">
                 <div class="model-selector">
                     <select id="modelSelect" class="model-select">
-                        <option value="linkai">Link-ai</option>
+                        <option value="linkai">LinkAI</option>
                         <option value="claude">Claude</option>
-                        <option value="ceok">CEOK</option>
+                        <option value="ceok">CEOK-2</option>
                     </select>
                     <button id="clearChat" class="clear-btn" title="清除对话历史">
                         <i class="fas fa-eraser"></i>
@@ -95,6 +95,10 @@
                                 <i class="fas fa-bomb"></i>
                                 <span>扫雷</span>
                             </div>
+                            <div class="game-option" data-game="schulte">
+                                <i class="fas fa-th"></i>
+                                <span>舒尔特方格</span>
+                            </div>
                         </div>
                     </div>
                     
@@ -125,6 +129,28 @@
                             </button>
                         </div>
                     </div>
+                    
+                    <!-- 舒尔特方格游戏 -->
+                    <div id="schulteGame" class="game" style="display: none;">
+                        <div class="schulte-container">
+                            <div class="schulte-header">
+                                <div class="schulte-controls">
+                                    <div class="button-group">
+                                        <button id="startSchulte" class="start-btn">
+                                            <i class="fas fa-play"></i>
+                                            <span>开始</span>
+                                        </button>
+                                        <button id="backToMenu" class="menu-btn">
+                                            <i class="fas fa-arrow-left"></i>
+                                            <span>返回菜单</span>
+                                        </button>
+                                    </div>
+                                    <div class="timer">用时：<span id="schulteTimer">00:00</span></div>
+                                </div>
+                            </div>
+                            <div id="schulteBoard" class="schulte-board"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -149,7 +175,7 @@
                 <a href="https://weibo.com/" target="_blank" title="微博"><i class="fab fa-weibo"></i></a>
                 <a href="https://www.alipay.com/" target="_blank" title="支付宝"><i class="fab fa-alipay"></i></a>
                 <a href="https://www.douyin.com/" target="_blank" title="抖音"><i class="fas fa-music"></i></a>
-                <a href="https://www.bilibili.com/" target="_blank" title="���哩哔哩"><i class="fas fa-play-circle"></i></a>
+                <a href="https://www.bilibili.com/" target="_blank" title="哔哩哔哩"><i class="fas fa-play-circle"></i></a>
                 <a href="https://www.taobao.com/" target="_blank" title="淘宝"><i class="fas fa-shopping-cart"></i></a>
                 <a href="https://www.zhihu.com/" target="_blank" title="知乎"><i class="fas fa-question-circle"></i></a>
             </div>

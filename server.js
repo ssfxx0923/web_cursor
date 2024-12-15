@@ -27,61 +27,76 @@ const API_CONFIG = {
 
 app.post('/api/chat', async (req, res) => {
     try {
-        const { messages, model = 'linkai' } = req.body;
+        const { messages, model = 'linkai-4o-mini' } = req.body;
         const config = API_CONFIG[model];
 
         if (!config) {
-            return res.status(400).json({ 
-                error: {
-                    message: "不支持的模型",
-                    type: "invalid_request_error"
-                }
-            });
+            return res.status(400).json({ error: 'Unsupported model' });
         }
 
-        if (!config.key) {
-            console.error(`Missing API key for model: ${model}`);
-            return res.status(401).json({ 
-                error: {
-                    message: "API密钥未配置",
-                    type: "invalid_api_key"
-                }
-            });
+        let headers = {
+            'Content-Type': 'application/json'
+        };
+
+        // 根据不同模型配置不同的请求头和请求体
+        let requestBody;
+        if (model === 'claude-3-sonnet') {
+            headers['x-api-key'] = config.key;
+            headers['anthropic-version'] = '2023-06-01';
+            requestBody = {
+                messages: messages,
+                model: 'claude-3-sonnet',
+                stream: true,
+                max_tokens: 1000
+            };
+        } else if (model === 'ceok-2') {
+            headers['Authorization'] = `Bearer ${config.key}`;
+            requestBody = {
+                messages: messages,
+                model: 'ceok-2',
+                stream: true
+            };
+        } else {
+            // LinkAI
+            headers['Authorization'] = `Bearer ${config.key}`;
+            requestBody = {
+                messages: messages,
+                model: 'linkai-4o-mini',
+                stream: true
+            };
         }
 
-        // 设置响应头
+        // 设置响应头以支持流式传输
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
         const response = await fetch(config.url, {
             method: 'POST',
-            headers: config.headers(config.key),
-            body: JSON.stringify(config.formatRequest(messages))
+            headers: headers,
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            let errorObj;
-            try {
-                errorObj = JSON.parse(errorText);
-            } catch (e) {
-                errorObj = { message: errorText };
-            }
-            throw { status: response.status, ...errorObj };
+            const error = await response.text();
+            throw new Error(`API request failed: ${error}`);
         }
 
-        // 直接转发流式响应
-        response.body.pipe(res);
-
-    } catch (error) {
-        console.error('Server error:', error);
-        const errorMessage = config.handleError(error);
+        // 转发流式响应
+        const reader = response.body.getReader();
         
-        // 确保以正确的格式返回错误
-        res.write(`data: {"error":{"message":"${errorMessage}"}}\n\n`);
-        res.write('data: [DONE]\n\n');
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = new TextDecoder().decode(value);
+            res.write(`data: ${chunk}\n\n`);
+        }
+
         res.end();
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
