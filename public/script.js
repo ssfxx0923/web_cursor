@@ -1,6 +1,18 @@
 import { sendToLinkAI, sendToClaude, sendToCeok, clearMessageHistory } from './api.js';
 import { GameManager } from './games.js';
 
+// 在文件开头添加视口高度计算
+function setViewportHeight() {
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+
+// 初始化时计算视口高度
+setViewportHeight();
+
+// 监听窗口大小变化
+window.addEventListener('resize', debounce(setViewportHeight, 100));
+
 // 修改主要的 DOMContentLoaded 事件监听器
 document.addEventListener('DOMContentLoaded', () => {
     // 获取所有需要的元素
@@ -297,7 +309,7 @@ function closeChat(e) {
     
     chatBox.classList.add('collapsed');
     
-    // 清除消息历史
+    // 清��消息历史
     clearMessageHistory();
     
     setTimeout(() => {
@@ -346,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         userInput.focus();
     }
     
-    // 初始化事件监听
+    // 初���化事件监听
     initChatEvents();
     
     // 移除快捷按钮的隐藏类
@@ -357,32 +369,139 @@ document.addEventListener('DOMContentLoaded', () => {
 function initChatEvents() {
     const userInput = document.getElementById('userInput');
     const sendButton = document.getElementById('sendButton');
-    
-    // 移除所有已存在的事件监听器
-    const newSendButton = sendButton.cloneNode(true);
-    sendButton.parentNode.replaceChild(newSendButton, sendButton);
-    
-    const newUserInput = userInput.cloneNode(true);
-    userInput.parentNode.replaceChild(newUserInput, userInput);
-    
-    // 重新绑定事件监听器
-    newUserInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+    const chatBox = document.querySelector('.chat-box');
+    const chatMessages = document.getElementById('chatMessages');
+    let keyboardHeight = 0;
+
+    // 处理输入框焦点
+    userInput.addEventListener('focus', () => {
+        // 添加键盘打开标记
+        chatBox.classList.add('keyboard-open');
+        
+        // 延迟滚动到底部，等待键盘完全弹出
+        setTimeout(() => {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // 记录键盘高度
+            keyboardHeight = window.innerHeight - window.visualViewport.height;
+            document.documentElement.style.setProperty('--keyboard-height', `${keyboardHeight}px`);
+        }, 300);
+    });
+
+    // 处理输入框失焦
+    userInput.addEventListener('blur', () => {
+        // 移除键盘打开标记
+        chatBox.classList.remove('keyboard-open');
+        
+        // 重置键盘高度
+        document.documentElement.style.setProperty('--keyboard-height', '0px');
+        
+        // 防止页面弹跳
+        setTimeout(() => {
+            window.scrollTo(0, 0);
+        }, 100);
+    });
+
+    // 监听可视区域变化
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+            if (document.activeElement === userInput) {
+                // 更新键盘高度
+                keyboardHeight = window.innerHeight - window.visualViewport.height;
+                document.documentElement.style.setProperty('--keyboard-height', `${keyboardHeight}px`);
+                
+                // 确保内容可见
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        });
+    }
+
+    // 防止页面滚动
+    document.body.addEventListener('touchmove', (e) => {
+        if (chatBox.classList.contains('keyboard-open')) {
             e.preventDefault();
-            handleSendMessage();
         }
-    });
-    
-    newUserInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-    });
-    
-    newSendButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        handleSendMessage();
-    });
+    }, { passive: false });
+
+    // 修改发送消息处理
+    async function handleSendMessage() {
+        const userInput = document.getElementById('userInput');
+        const modelSelect = document.getElementById('modelSelect');
+        const message = userInput.value.trim();
+        const chatMessages = document.getElementById('chatMessages');
+        const currentModel = modelSelect.value;
+        
+        if (message) {
+            // 清空输入框
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            
+            // 添加用户消息到界面
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'message user';
+            const userMessageContent = document.createElement('div');
+            userMessageContent.className = 'message-content';
+            userMessageContent.textContent = message;
+            userMessageDiv.appendChild(userMessageContent);
+            chatMessages.appendChild(userMessageDiv);
+            
+            // 获取当前模型的消息历史
+            const histories = JSON.parse(localStorage.getItem('chatMessageHistory') || '{}');
+            const currentHistory = histories[currentModel] || [];
+            currentHistory.push({ role: 'user', content: message });
+            
+            smoothScrollTo(chatMessages, chatMessages.scrollHeight);
+            
+            try {
+                let response;
+                switch(currentModel) {
+                    case 'claude':
+                        response = await sendToClaude(message, 'session-1');
+                        break;
+                    case 'ceok':
+                        response = await sendToCeok(message, 'session-1');
+                        break;
+                    default:
+                        response = await sendToLinkAI(message, 'session-1');
+                }
+                
+                const aiMessageDiv = document.createElement('div');
+                aiMessageDiv.className = 'message system';
+                const aiMessageContent = document.createElement('div');
+                aiMessageContent.className = 'message-content';
+                aiMessageDiv.appendChild(aiMessageContent);
+                chatMessages.appendChild(aiMessageDiv);
+                
+                let fullResponse = '';
+                
+                for await (const chunk of response) {
+                    fullResponse += chunk;
+                    aiMessageContent.textContent = fullResponse;
+                    smoothScrollTo(chatMessages, chatMessages.scrollHeight);
+                }
+
+                // 保存AI回复到历史记录
+                currentHistory.push({ role: 'assistant', content: fullResponse });
+                histories[currentModel] = currentHistory;
+                localStorage.setItem('chatMessageHistory', JSON.stringify(histories));
+                
+            } catch (error) {
+                console.error('Error:', error);
+                
+                const errorMessageDiv = document.createElement('div');
+                errorMessageDiv.className = 'message system';
+                const errorMessageContent = document.createElement('div');
+                errorMessageContent.className = 'message-content';
+                errorMessageContent.textContent = error.message || '抱歉，发生了一些错误，请稍后重试。';
+                errorMessageDiv.appendChild(errorMessageContent);
+                chatMessages.appendChild(errorMessageDiv);
+            }
+            
+            smoothScrollTo(chatMessages, chatMessages.scrollHeight);
+        }
+    }
+
+    // 其他事件监听保持不变
 }
 
 // 在 script.js 文件中添加息历史管理的函数
@@ -397,82 +516,34 @@ function saveMessageHistory(model, messages) {
     localStorage.setItem('chatMessageHistory', JSON.stringify(histories));
 }
 
-// 修改 handleSendMessage 函数
-async function handleSendMessage() {
-    const userInput = document.getElementById('userInput');
-    const modelSelect = document.getElementById('modelSelect');
-    const message = userInput.value.trim();
-    const chatMessages = document.getElementById('chatMessages');
-    const currentModel = modelSelect.value;
-    
-    if (message) {
-        // 清空输入框
-        userInput.value = '';
-        userInput.style.height = 'auto';
-        
-        // 添加用户消息到界面
-        const userMessageDiv = document.createElement('div');
-        userMessageDiv.className = 'message user';
-        const userMessageContent = document.createElement('div');
-        userMessageContent.className = 'message-content';
-        userMessageContent.textContent = message;
-        userMessageDiv.appendChild(userMessageContent);
-        chatMessages.appendChild(userMessageDiv);
-        
-        // 获取当前模型的消息历史
-        const histories = JSON.parse(localStorage.getItem('chatMessageHistory') || '{}');
-        const currentHistory = histories[currentModel] || [];
-        currentHistory.push({ role: 'user', content: message });
-        
-        smoothScrollTo(chatMessages, chatMessages.scrollHeight);
-        
-        try {
-            let response;
-            switch(currentModel) {
-                case 'claude':
-                    response = await sendToClaude(message, 'session-1');
-                    break;
-                case 'ceok':
-                    response = await sendToCeok(message, 'session-1');
-                    break;
-                default:
-                    response = await sendToLinkAI(message, 'session-1');
-            }
-            
-            const aiMessageDiv = document.createElement('div');
-            aiMessageDiv.className = 'message system';
-            const aiMessageContent = document.createElement('div');
-            aiMessageContent.className = 'message-content';
-            aiMessageDiv.appendChild(aiMessageContent);
-            chatMessages.appendChild(aiMessageDiv);
-            
-            let fullResponse = '';
-            
-            for await (const chunk of response) {
-                fullResponse += chunk;
-                aiMessageContent.textContent = fullResponse;
-                smoothScrollTo(chatMessages, chatMessages.scrollHeight);
-            }
-
-            // 保存AI回复到历史记录
-            currentHistory.push({ role: 'assistant', content: fullResponse });
-            histories[currentModel] = currentHistory;
-            localStorage.setItem('chatMessageHistory', JSON.stringify(histories));
-            
-        } catch (error) {
-            console.error('Error:', error);
-            
-            const errorMessageDiv = document.createElement('div');
-            errorMessageDiv.className = 'message system';
-            const errorMessageContent = document.createElement('div');
-            errorMessageContent.className = 'message-content';
-            errorMessageContent.textContent = error.message || '抱歉，发生了一些错误，请稍后重试。';
-            errorMessageDiv.appendChild(errorMessageContent);
-            chatMessages.appendChild(errorMessageDiv);
-        }
-        
-        smoothScrollTo(chatMessages, chatMessages.scrollHeight);
+// 优化滚动处理
+function smoothScrollTo(element, target) {
+    // 在键盘打开时使用即时滚动
+    if (document.querySelector('.chat-box.keyboard-open')) {
+        element.scrollTop = target;
+        return;
     }
+
+    // 其他情况使用平滑滚动
+    const start = element.scrollTop;
+    const change = target - start;
+    const duration = 300;
+    let startTime = null;
+
+    function animation(currentTime) {
+        if (startTime === null) startTime = currentTime;
+        const timeElapsed = currentTime - startTime;
+        const progress = Math.min(timeElapsed / duration, 1);
+        
+        const easing = t => t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        element.scrollTop = start + change * easing(progress);
+
+        if (timeElapsed < duration) {
+            requestAnimationFrame(animation);
+        }
+    }
+
+    requestAnimationFrame(animation);
 }
 
 // 背景轮播功能
@@ -535,29 +606,6 @@ function addMessage(content, isUser = false) {
         chatMessages.appendChild(fragment);
         smoothScrollTo(chatMessages, chatMessages.scrollHeight);
     });
-}
-
-// 优化滚动性能
-function smoothScrollTo(element, target) {
-    const start = element.scrollTop;
-    const change = target - start;
-    const duration = 300;
-    let startTime = null;
-
-    function animation(currentTime) {
-        if (startTime === null) startTime = currentTime;
-        const timeElapsed = currentTime - startTime;
-        const progress = Math.min(timeElapsed / duration, 1);
-        
-        const easing = t => t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-        element.scrollTop = start + change * easing(progress);
-
-        if (timeElapsed < duration) {
-            requestAnimationFrame(animation);
-        }
-    }
-
-    requestAnimationFrame(animation);
 }
 
 // 修改游戏选择功能
@@ -1130,7 +1178,7 @@ function initMinesweeperGame() {
         }, mines.length * 50 + 500);
     }
     
-    // 处理右键点击（插旗）
+    // 处理右键���击（插旗）
     function handleRightClick(row, col) {
         if (gameOver || cells[row][col].classList.contains('revealed')) return;
         
