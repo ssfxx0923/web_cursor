@@ -607,7 +607,7 @@ function addReturnToMenuButtons() {
             gameMenu.style.display = 'flex';
         });
         
-        // 将返回按钮添加到游��控制区
+        // 将返回按钮添加到游戏控制区
         const controlsDiv = game.querySelector('.game-controls');
         controlsDiv.appendChild(returnButton);
     });
@@ -919,6 +919,45 @@ function initSnakeGame() {
     init();
     draw();
     startBtn.innerHTML = '<i class="fas fa-play"></i><span>开始</span>';
+
+    // 添加触摸控制
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    document.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!gameStatus === 'playing') return;
+        
+        e.preventDefault();
+        const touchEndX = e.touches[0].clientX;
+        const touchEndY = e.touches[0].clientY;
+        
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+        
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            // 水平滑动
+            if (deltaX > 0 && direction !== 'left') {
+                direction = 'right';
+            } else if (deltaX < 0 && direction !== 'right') {
+                direction = 'left';
+            }
+        } else {
+            // 垂直滑动
+            if (deltaY > 0 && direction !== 'up') {
+                direction = 'down';
+            } else if (deltaY < 0 && direction !== 'down') {
+                direction = 'up';
+            }
+        }
+        
+        touchStartX = touchEndX;
+        touchStartY = touchEndY;
+    }, { passive: false });
 }
 
 // 扫雷游戏初始化
@@ -1233,6 +1272,31 @@ function initMinesweeperGame() {
 
     // 初始化游戏
     initBoard();
+
+    // 添加长按插旗功能
+    let longPressTimer;
+    const LONG_PRESS_DURATION = 500;
+
+    function handleCellTouchStart(row, col, e) {
+        e.preventDefault();
+        longPressTimer = setTimeout(() => {
+            handleRightClick(row, col);
+        }, LONG_PRESS_DURATION);
+    }
+
+    function handleCellTouchEnd(e) {
+        e.preventDefault();
+        clearTimeout(longPressTimer);
+    }
+
+    // 修改单元格事件绑定
+    for (let i = 0; i < BOARD_SIZE; i++) {
+        for (let j = 0; j < BOARD_SIZE; j++) {
+            const cell = cells[i][j];
+            cell.addEventListener('touchstart', (e) => handleCellTouchStart(i, j, e));
+            cell.addEventListener('touchend', handleCellTouchEnd);
+        }
+    }
 }
 
 // 添加舒尔特方格游戏初始化函数
@@ -1436,5 +1500,7 @@ function preloadImages() {
     imageUrls.forEach(url => {
         const img = new Image();
         img.src = url;
+        // 添加移动端图片加载优化
+        img.loading = 'lazy';
     });
 }

@@ -46,7 +46,22 @@ async function sendToCeok(message, sessionId) {
     return sendToAI(messages, 'ceok');
 }
 
+// 添加网络状态检测
+function checkNetworkStatus() {
+    if (!navigator.onLine) {
+        return '网络连接已断开，请检查网络设置';
+    }
+    return null;
+}
+
+// 修改发送消息函数
 async function sendToAI(messages, model) {
+    // 检查网络状态
+    const networkError = checkNetworkStatus();
+    if (networkError) {
+        throw new Error(networkError);
+    }
+
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -57,8 +72,10 @@ async function sendToAI(messages, model) {
                 messages: messages,
                 model: model
             }),
-            credentials: 'same-origin',
-            mode: 'cors'
+            // 添加移动端超时处理
+            timeout: 30000,
+            // 添加移动端离线缓存支持
+            cache: 'no-cache'
         });
 
         if (!response.ok) {
@@ -114,6 +131,10 @@ async function sendToAI(messages, model) {
         };
     } catch (error) {
         console.error('Request error:', error);
+        // 优化移动端错误提示
+        if (!navigator.onLine) {
+            throw new Error('网络连接已断开，请检查网络后重试');
+        }
         throw new Error(error.message || '请求失败，请稍后重试');
     }
 }

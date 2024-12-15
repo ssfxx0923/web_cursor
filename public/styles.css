@@ -371,13 +371,95 @@ footer.hidden {
 /* 响应式设计 */
 @media (max-width: 768px) {
     .chat-box {
-        height: 85vh;
-        margin: 10px;
+        width: 100%;
+        max-width: 100%;
+        height: 100vh;
+        margin: 0;
+        border-radius: 0;
+        right: 0;
+        bottom: 0;
     }
 
-    .footer-content {
+    .game-box {
+        width: 100%;
+        max-width: 100%;
+        height: 100vh;
+        margin: 0;
+        border-radius: 0;
+        right: 0;
+        bottom: 0;
+    }
+
+    .input-area {
+        padding: 10px;
+    }
+
+    textarea {
+        font-size: 16px;
+        padding: 8px;
+    }
+
+    .game-controls {
+        min-width: auto;
+        width: 100%;
+        padding: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .game-options {
+        padding: 10px;
+    }
+
+    .game-option {
+        width: 120px;
+        height: 120px;
+    }
+
+    .quick-buttons {
+        bottom: 70px;
+        right: 10px;
+    }
+
+    footer {
+        width: 100%;
+        padding: 10px;
+        border-radius: 0;
+    }
+
+    .social-links {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .schulte-container {
+        padding: 10px;
+    }
+
+    .schulte-controls {
         flex-direction: column;
         gap: 10px;
+    }
+
+    .schulte-board {
+        max-width: 100%;
+    }
+
+    #minesweeperBoard {
+        grid-template-columns: repeat(16, 20px);
+    }
+
+    .cell {
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+    }
+
+    #snakeCanvas {
+        max-width: 100%;
+        height: auto;
     }
 }
 
@@ -820,7 +902,7 @@ canvas {
     pointer-events: none;
 }
 
-/* 确保游戏框内容不会遮挡按�� */
+/* 确保游戏框内容不会遮挡按 */
 .game-content {
     z-index: 1;
 }
@@ -1319,4 +1401,19 @@ canvas {
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.15);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 添加触摸设备支持 */
+@media (hover: none) {
+    .game-option:hover {
+        transform: none;
+    }
+
+    .quick-btn:hover {
+        transform: none;
+    }
+
+    button:hover {
+        transform: none;
+    }
 }
