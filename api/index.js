@@ -18,7 +18,7 @@ const API_CONFIG = {
         }),
         formatRequest: (messages) => ({
             messages,
-            model: 'claude-3-sonnet',
+            model: 'JKAxbjsF',
             stream: true
         }),
         handleError: (error) => {
