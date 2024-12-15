@@ -34,6 +34,11 @@ async function sendToCeok(message, sessionId) {
 
 async function sendToAI(messages, model) {
     try {
+        console.log(`Sending ${model} request:`, {
+            messageCount: messages.length,
+            model
+        });
+
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
@@ -43,12 +48,13 @@ async function sendToAI(messages, model) {
                 messages: messages,
                 model: model
             }),
-            credentials: 'same-origin',
-            mode: 'cors'
+            credentials: 'same-origin'
         });
 
         if (!response.ok) {
-            throw new Error('网络请求失败，请稍后重试');
+            const errorText = await response.text();
+            console.error(`API Error (${response.status}):`, errorText);
+            throw new Error('API 请求失败，请检查配置或稍后重试');
         }
 
         const reader = response.body.getReader();
@@ -98,7 +104,7 @@ async function sendToAI(messages, model) {
         };
     } catch (error) {
         console.error('Request error:', error);
-        throw new Error(error.message || '请求失败，请稍后重试');
+        throw error;
     }
 }
 

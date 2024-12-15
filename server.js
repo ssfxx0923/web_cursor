@@ -27,12 +27,26 @@ const API_CONFIG = {
 
 app.post('/api/chat', async (req, res) => {
     try {
-        const { messages, model = 'linkai-4o-mini' } = req.body;
+        const { messages, model = 'linkai' } = req.body;
         const config = API_CONFIG[model];
 
         if (!config) {
             return res.status(400).json({ error: 'Unsupported model' });
         }
+
+        if (!config.key) {
+            console.error(`Missing API key for model: ${model}`);
+            return res.status(503).json({ 
+                error: 'Service configuration error',
+                message: `${model} 服务未正确配置，请检查 API 密钥`
+            });
+        }
+
+        // 打印请求信息（不包含敏感信息）
+        console.log(`Sending request to ${model}:`, {
+            url: config.url,
+            messageCount: messages.length
+        });
 
         let headers = {
             'Content-Type': 'application/json'
@@ -95,8 +109,11 @@ app.post('/api/chat', async (req, res) => {
 
         res.end();
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: error.message });
+        console.error('Server error:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            message: '服务器内部错误，请稍后重试'
+        });
     }
 });
 

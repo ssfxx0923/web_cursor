@@ -19,13 +19,16 @@ const API_CONFIG = {
         formatRequest: (messages) => ({
             messages,
             model: 'JKAxbjsF',
-            stream: true
+            temperature: 0.7,
+            stream: true,
+            max_tokens: 2000
         }),
         handleError: (error) => {
+            console.error('LinkAI Error:', error);
             if (error.message?.includes('API key')) {
-                return '链猫AI服务暂时不可用，请稍后再试';
+                return 'Link-AI 服务暂时不可用，请检查 API 密钥配置';
             }
-            return error.message || '服务暂时不可用';
+            return error.message || '服务暂时不可用，请稍后再试';
         }
     },
     'claude': {
