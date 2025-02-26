@@ -426,8 +426,25 @@ async function handleSendMessage() {
         
         smoothScrollTo(chatMessages, chatMessages.scrollHeight);
         
+        // 添加AI响应的占位消息
+        const aiMessageDiv = document.createElement('div');
+        aiMessageDiv.className = 'message system';
+        const aiMessageContent = document.createElement('div');
+        aiMessageContent.className = 'message-content';
+        
+        // 检查是否是deepseek模型，如果是则添加调试信息
+        if (currentModel === 'deepseek') {
+            aiMessageContent.innerHTML = '<em>正在处理请求...</em>';
+            console.log('使用Deepseek模型处理消息:', message);
+        }
+        
+        aiMessageDiv.appendChild(aiMessageContent);
+        chatMessages.appendChild(aiMessageDiv);
+        
         try {
             let response;
+            console.log('开始API请求，模型:', currentModel);
+            
             switch(currentModel) {
                 case 'claude':
                     response = await sendToClaude(message, 'session-1');
@@ -436,42 +453,56 @@ async function handleSendMessage() {
                     response = await sendToCeok(message, 'session-1');
                     break;
                 case 'deepseek':
+                    console.log('开始调用Deepseek API');
                     response = await sendToDeepseek(message, 'session-1');
                     break;
                 default:
                     response = await sendToLinkAI(message, 'session-1');
             }
             
-            const aiMessageDiv = document.createElement('div');
-            aiMessageDiv.className = 'message system';
-            const aiMessageContent = document.createElement('div');
-            aiMessageContent.className = 'message-content';
-            aiMessageDiv.appendChild(aiMessageContent);
-            chatMessages.appendChild(aiMessageDiv);
-            
             let fullResponse = '';
             
-            for await (const chunk of response) {
-                fullResponse += chunk;
-                aiMessageContent.textContent = fullResponse;
-                smoothScrollTo(chatMessages, chatMessages.scrollHeight);
+            // 清空占位符文本
+            aiMessageContent.textContent = '';
+            
+            try {
+                for await (const chunk of response) {
+                    console.log(`收到${currentModel}响应块:`, chunk);
+                    fullResponse += chunk;
+                    aiMessageContent.textContent = fullResponse;
+                    smoothScrollTo(chatMessages, chatMessages.scrollHeight);
+                }
+                
+                console.log(`${currentModel}完整响应:`, fullResponse);
+            } catch (streamError) {
+                console.error(`处理${currentModel}响应流时出错:`, streamError);
+                
+                // 如果流处理中发生错误但已经有部分响应，则保留它
+                if (fullResponse) {
+                    aiMessageContent.innerHTML = fullResponse + 
+                        `<br><span style="color:red">⚠️ 警告: 响应中断 - ${streamError.message}</span>`;
+                } else {
+                    aiMessageContent.innerHTML = 
+                        `<span style="color:red">⚠️ 错误: ${streamError.message || '接收响应时出错'}</span>`;
+                }
             }
 
             // 保存AI回复到历史记录
-            currentHistory.push({ role: 'assistant', content: fullResponse });
-            histories[currentModel] = currentHistory;
-            localStorage.setItem('chatMessageHistory', JSON.stringify(histories));
+            if (fullResponse) {
+                currentHistory.push({ role: 'assistant', content: fullResponse });
+                histories[currentModel] = currentHistory;
+                localStorage.setItem('chatMessageHistory', JSON.stringify(histories));
+            }
             
         } catch (error) {
-            console.error('Error:', error);
+            console.error(`${currentModel}请求错误:`, error);
             
-            const errorMessageDiv = document.createElement('div');
-            errorMessageDiv.className = 'message system';
-            const errorMessageContent = document.createElement('div');
-            errorMessageContent.className = 'message-content';
-            errorMessageContent.textContent = error.message || '抱歉，发生了一些错误，请稍后重试。';
-            errorMessageDiv.appendChild(errorMessageContent);
-            chatMessages.appendChild(errorMessageDiv);
+            // 直接使用现有消息div显示错误
+            aiMessageContent.innerHTML = `<span style="color:red">⚠️ 错误: ${error.message || '发生未知错误'}</span>`;
+            
+            if (currentModel === 'deepseek') {
+                aiMessageContent.innerHTML += '<br><span style="color:orange">请检查控制台以获取详细调试信息</span>';
+            }
         }
         
         smoothScrollTo(chatMessages, chatMessages.scrollHeight);

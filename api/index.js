@@ -97,33 +97,38 @@ const API_CONFIG = {
         headers: (key) => ({
             'Authorization': `Bearer ${key}`,
             'Content-Type': 'application/json',
-            'Accept': 'text/event-stream'
+            'Accept': 'text/event-stream',
+            'X-DashScope-SSE': 'enable'
         }),
         formatRequest: (messages) => ({
             model: 'deepseek-r1',
             input: {
                 messages: messages.map(msg => ({
-                    role: msg.role,
+                    role: msg.role === 'assistant' ? 'assistant' : 'user',
                     content: msg.content
                 }))
             },
             parameters: {
+                result_format: 'message',
                 stream: true,
-                max_tokens: 4000
+                max_tokens: 4000,
+                temperature: 0.7
             }
         }),
         handleError: (error) => {
             const errorObj = error.error || error;
+            console.error('[ERROR] Deepseek错误对象:', JSON.stringify(errorObj));
             
-            if (errorObj.message?.includes('quota') || errorObj.message?.includes('balance')) {
+            if (errorObj.code === 'InvalidApiKey' || errorObj.code === 'QuotaExceeded' || 
+                errorObj.message?.includes('quota') || errorObj.message?.includes('balance')) {
                 return {
-                    message: 'Deepseek AI 服务余额不足，请联系管理员充值',
-                    type: 'balance_insufficient',
-                    details: errorObj.message
+                    message: 'Deepseek AI 服务配额不足或密钥无效，请联系管理员',
+                    type: 'api_error',
+                    details: errorObj.message || JSON.stringify(errorObj)
                 };
             }
             
-            return errorObj.message || 'Deepseek服务暂时不可用';
+            return errorObj.message || errorObj.code || '阿里云Deepseek服务暂时不可用';
         }
     }
 };
@@ -164,8 +169,16 @@ const handler = async (req, res) => {
             });
         }
 
+        // 添加调试日志 - 记录当前模型和API密钥状态
+        console.log(`[DEBUG] 使用模型: ${model}, API密钥是否存在: ${!!config.key}`);
+        
         const headers = config.headers(config.key);
         const requestBody = config.formatRequest(messages);
+        
+        // 添加调试日志 - 记录请求详情
+        console.log(`[DEBUG] API请求URL: ${config.url}`);
+        console.log(`[DEBUG] 请求头:`, JSON.stringify(headers));
+        console.log(`[DEBUG] 请求体:`, JSON.stringify(requestBody));
         
         const fetchOptions = {
             method: 'POST',
@@ -176,6 +189,9 @@ const handler = async (req, res) => {
 
         const response = await fetch(config.url, fetchOptions);
 
+        // 添加调试日志 - 记录响应状态
+        console.log(`[DEBUG] 响应状态码: ${response.status}, 状态文本: ${response.statusText}`);
+        
         // 设置流式响应头
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
@@ -183,6 +199,9 @@ const handler = async (req, res) => {
 
         if (!response.ok) {
             const errorText = await response.text();
+            // 添加调试日志 - 记录错误响应内容
+            console.error(`[ERROR] API响应错误: ${errorText}`);
+            
             let errorObj;
             try {
                 errorObj = JSON.parse(errorText);
@@ -194,7 +213,8 @@ const handler = async (req, res) => {
             const errorMessage = typeof errorResponse === 'string' ? 
                 errorResponse : errorResponse.message;
             
-            res.write(`data: {"choices":[{"delta":{"content":"${errorMessage}"}}]}\n\n`);
+            // 向客户端发送错误信息
+            res.write(`data: {"choices":[{"delta":{"content":"API调用失败: ${errorMessage}"}}]}\n\n`);
             res.write('data: [DONE]\n\n');
             res.end();
             return;
@@ -241,16 +261,93 @@ const handler = async (req, res) => {
                 res.write('data: [DONE]\n\n');
                 res.end();
             }
+        } else if (model === 'deepseek') {
+            // Deepseek 特殊处理逻辑
+            console.log('[DEBUG] 进入Deepseek专用处理分支');
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            
+            try {
+                let buffer = '';
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    console.log('[DEBUG] Deepseek原始响应块:', chunk);
+                    
+                    buffer += chunk;
+                    const lines = buffer.split('\n');
+                    
+                    // 保留最后一行，可能是不完整的
+                    buffer = lines.pop() || '';
+                    
+                    for (const line of lines) {
+                        if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
+                        
+                        console.log('[DEBUG] 处理Deepseek响应行:', line);
+                        
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                console.log('[DEBUG] 解析后的Deepseek数据:', JSON.stringify(data));
+                                
+                                // 提取文本 - 根据阿里云API的实际响应格式调整
+                                let content = '';
+                                
+                                if (data.output?.text) {
+                                    // 阿里云格式1
+                                    content = data.output.text;
+                                } else if (data.output?.choices?.[0]?.message?.content) {
+                                    // 阿里云格式2
+                                    content = data.output.choices[0].message.content;
+                                } else if (data.output?.message?.content) {
+                                    // 阿里云格式3
+                                    content = data.output.message.content;
+                                } else if (data.choices?.[0]?.delta?.content) {
+                                    // OpenAI兼容格式
+                                    content = data.choices[0].delta.content;
+                                } else {
+                                    // 记录未识别的响应格式
+                                    console.log('[DEBUG] 未能识别的Deepseek响应格式:', JSON.stringify(data));
+                                }
+                                
+                                if (content) {
+                                    const safeText = content.replace(/"/g, '\\"');
+                                    console.log('[DEBUG] 发送到客户端的内容:', safeText);
+                                    res.write(`data: {"choices":[{"delta":{"content":"${safeText}"}}]}\n\n`);
+                                }
+                            } catch (e) {
+                                console.error('解析Deepseek响应失败:', line, e);
+                                continue;
+                            }
+                        }
+                    }
+                }
+                
+                res.write('data: [DONE]\n\n');
+                res.end();
+                console.log('[DEBUG] Deepseek响应处理完成');
+            } catch (error) {
+                console.error('[ERROR] Deepseek流处理错误:', error);
+                res.write(`data: {"choices":[{"delta":{"content":"Deepseek数据流处理错误: ${error.message}"}}]}\n\n`);
+                res.write('data: [DONE]\n\n');
+                res.end();
+            }
         } else {
             // 其他模型的处理方式
+            console.log(`[DEBUG] 使用默认处理方式处理${model}模型响应`);
             response.body.pipe(res);
             
             response.body.on('end', () => {
+                console.log('[DEBUG] 响应流结束');
                 res.end();
             });
 
             response.body.on('error', error => {
-                console.error('Stream error:', error);
+                console.error('[ERROR] 流错误:', error);
                 if (!res.headersSent) {
                     res.write(`data: {"choices":[{"delta":{"content":"数据流传输错误，请重试"}}]}\n\n`);
                     res.write('data: [DONE]\n\n');

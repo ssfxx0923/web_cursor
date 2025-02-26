@@ -53,7 +53,17 @@ async function sendToDeepseek(message, sessionId) {
         content: message
     });
     saveMessageHistory('deepseek', messages);
-    return sendToAI(messages, 'deepseek');
+    
+    // 添加调试日志
+    console.log('发送到Deepseek的消息:', message);
+    console.log('完整消息历史:', messages);
+    
+    try {
+        return sendToAI(messages, 'deepseek');
+    } catch (error) {
+        console.error('Deepseek API调用失败:', error);
+        throw error;
+    }
 }
 
 async function sendToAI(messages, model) {
