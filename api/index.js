@@ -265,24 +265,20 @@ const handler = async (req, res) => {
             // Deepseek 特殊处理逻辑
             console.log('[DEBUG] 进入Deepseek专用处理分支');
             
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
+            // 添加详细的响应检查
+            console.log('[DEBUG] 响应类型:', typeof response.body);
+            console.log('[DEBUG] 响应对象属性:', Object.keys(response.body));
+            console.log('[DEBUG] 响应头:', JSON.stringify([...response.headers.entries()]));
             
             try {
-                let buffer = '';
+                // 使用Node.js原生方式处理流，避免使用getReader
+                let responseText = '';
                 
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
+                response.body.on('data', (chunk) => {
+                    const text = chunk.toString();
+                    console.log('[DEBUG] Deepseek原始响应块:', text);
                     
-                    const chunk = decoder.decode(value);
-                    console.log('[DEBUG] Deepseek原始响应块:', chunk);
-                    
-                    buffer += chunk;
-                    const lines = buffer.split('\n');
-                    
-                    // 保留最后一行，可能是不完整的
-                    buffer = lines.pop() || '';
+                    const lines = text.split('\n');
                     
                     for (const line of lines) {
                         if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
@@ -325,11 +321,21 @@ const handler = async (req, res) => {
                             }
                         }
                     }
-                }
+                });
                 
-                res.write('data: [DONE]\n\n');
-                res.end();
-                console.log('[DEBUG] Deepseek响应处理完成');
+                response.body.on('end', () => {
+                    console.log('[DEBUG] Deepseek响应处理完成');
+                    res.write('data: [DONE]\n\n');
+                    res.end();
+                });
+                
+                response.body.on('error', (error) => {
+                    console.error('[ERROR] Deepseek流处理错误:', error);
+                    res.write(`data: {"choices":[{"delta":{"content":"Deepseek数据流处理错误: ${error.message}"}}]}\n\n`);
+                    res.write('data: [DONE]\n\n');
+                    res.end();
+                });
+                
             } catch (error) {
                 console.error('[ERROR] Deepseek流处理错误:', error);
                 res.write(`data: {"choices":[{"delta":{"content":"Deepseek数据流处理错误: ${error.message}"}}]}\n\n`);
