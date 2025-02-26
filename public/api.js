@@ -68,6 +68,8 @@ async function sendToDeepseek(message, sessionId) {
 
 async function sendToAI(messages, model) {
     try {
+        console.log(`[DEBUG] 开始发送请求到${model}模型`);
+        
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
@@ -81,8 +83,13 @@ async function sendToAI(messages, model) {
             mode: 'cors'
         });
 
+        console.log(`[DEBUG] 收到${model}响应:`, response.status, response.statusText);
+        console.log(`[DEBUG] 响应头:`, [...response.headers.entries()]);
+
         if (!response.ok) {
-            throw new Error('网络请求失败，请稍后重试');
+            const errorText = await response.text();
+            console.error(`[ERROR] API响应错误:`, errorText);
+            throw new Error(`网络请求失败 (${response.status}): ${errorText || '未知错误'}`);
         }
 
         const reader = response.body.getReader();
@@ -92,31 +99,98 @@ async function sendToAI(messages, model) {
             async *[Symbol.asyncIterator]() {
                 try {
                     let responseText = '';
+                    let buffer = ''; // 用于处理分段的JSON
+                    let isFirst = true;
+                    
+                    console.log(`[DEBUG] 开始读取${model}响应流`);
+                    
                     while (true) {
                         const {done, value} = await reader.read();
-                        if (done) break;
+                        if (done) {
+                            console.log(`[DEBUG] ${model}响应流结束`);
+                            break;
+                        }
                         
                         const chunk = decoder.decode(value);
-                        const lines = chunk.split('\n');
+                        console.log(`[DEBUG] 收到数据块:`, chunk.substring(0, 100) + (chunk.length > 100 ? '...' : ''));
+                        
+                        buffer += chunk;
+                        const lines = buffer.split('\n');
+                        // 保留最后一行，它可能是不完整的
+                        buffer = lines.pop() || '';
                         
                         for (const line of lines) {
-                            if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
+                            if (line.trim() === '') continue;
+                            if (line.trim() === 'data: [DONE]') {
+                                console.log(`[DEBUG] 检测到完成标记`);
+                                continue;
+                            }
+                            
+                            // 忽略元数据行
+                            if (line.startsWith('id:') || line.startsWith('event:') || line.startsWith(':')) {
+                                console.log(`[DEBUG] 忽略元数据行:`, line);
+                                continue;
+                            }
                             
                             if (line.startsWith('data: ')) {
                                 try {
-                                    const data = JSON.parse(line.slice(6));
+                                    const dataStr = line.slice(6);
+                                    console.log(`[DEBUG] 解析数据:`, dataStr.substring(0, 50) + (dataStr.length > 50 ? '...' : ''));
+                                    
+                                    const data = JSON.parse(dataStr);
+                                    
+                                    // 标准OpenAI格式
                                     if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
                                         const content = data.choices[0].delta.content;
+                                        console.log(`[DEBUG] 提取到标准格式内容:`, content.substring(0, 30) + (content.length > 30 ? '...' : ''));
+                                        responseText += content;
+                                        yield content;
+                                    } 
+                                    // 检查Deepseek特有格式
+                                    else if (data.output?.choices?.[0]?.message?.reasoning_content) {
+                                        // Deepseek返回累计内容，我们需要找出新增部分
+                                        const fullContent = data.output.choices[0].message.reasoning_content;
+                                        let newContent = '';
+                                        
+                                        if (responseText === '') {
+                                            newContent = fullContent;
+                                        } else {
+                                            newContent = fullContent.substring(responseText.length);
+                                        }
+                                        
+                                        if (newContent) {
+                                            console.log(`[DEBUG] 提取到Deepseek增量内容:`, newContent.substring(0, 30) + (newContent.length > 30 ? '...' : ''));
+                                            responseText = fullContent; // 更新累计内容
+                                            yield newContent;
+                                        }
+                                    }
+                                    // 其他可能的格式
+                                    else if (data.output?.text) {
+                                        const content = data.output.text;
+                                        console.log(`[DEBUG] 提取到output.text格式内容`);
                                         responseText += content;
                                         yield content;
                                     }
+                                    else {
+                                        console.warn(`[WARN] 未识别的响应格式:`, JSON.stringify(data).substring(0, 100));
+                                    }
                                 } catch (e) {
-                                    console.warn('Failed to parse line:', line, e);
+                                    console.error(`[ERROR] 解析响应失败:`, line, e);
+                                    if (isFirst) {
+                                        // 如果第一次解析就失败，直接显示原始内容
+                                        isFirst = false;
+                                        const errorMsg = "解析响应失败，原始数据: " + line.substring(0, 50);
+                                        yield errorMsg;
+                                        responseText += errorMsg;
+                                    }
                                     continue;
                                 }
+                            } else {
+                                console.warn(`[WARN] 未知格式的行:`, line);
                             }
                         }
                     }
+                    
                     // 将AI的回复添加到对应模型的历史记录中
                     if (responseText) {
                         const messages = getMessageHistory(model);
@@ -127,13 +201,14 @@ async function sendToAI(messages, model) {
                         saveMessageHistory(model, messages);
                     }
                 } catch (error) {
-                    console.error('Stream error:', error);
-                    throw new Error('连接中断，请刷新页面重试');
+                    console.error(`[ERROR] 流处理错误:`, error);
+                    yield `\n\n[连接错误: ${error.message}]`;
+                    throw new Error('连接中断，请刷新页面重试: ' + error.message);
                 }
             }
         };
     } catch (error) {
-        console.error('Request error:', error);
+        console.error(`[ERROR] 请求错误:`, error);
         throw new Error(error.message || '请求失败，请稍后重试');
     }
 }

@@ -434,8 +434,10 @@ async function handleSendMessage() {
         
         // 检查是否是deepseek模型，如果是则添加调试信息
         if (currentModel === 'deepseek') {
+            aiMessageContent.innerHTML = '<em>正在连接到阿里云 Deepseek 模型...</em>';
+            console.log('[DEBUG] 使用Deepseek模型处理消息:', message);
+        } else {
             aiMessageContent.innerHTML = '<em>正在处理请求...</em>';
-            console.log('使用Deepseek模型处理消息:', message);
         }
         
         aiMessageDiv.appendChild(aiMessageContent);
@@ -453,7 +455,9 @@ async function handleSendMessage() {
                     response = await sendToCeok(message, 'session-1');
                     break;
                 case 'deepseek':
-                    console.log('开始调用Deepseek API');
+                    console.log('[DEBUG] 开始调用Deepseek API');
+                    // 更新状态提示
+                    aiMessageContent.innerHTML = '<em>已连接，等待Deepseek响应中...</em>';
                     response = await sendToDeepseek(message, 'session-1');
                     break;
                 default:
@@ -466,24 +470,42 @@ async function handleSendMessage() {
             aiMessageContent.textContent = '';
             
             try {
+                // 为Deepseek模型添加特殊处理
+                if (currentModel === 'deepseek') {
+                    aiMessageContent.innerHTML = '<em>接收到响应，正在处理中...</em>';
+                }
+                
                 for await (const chunk of response) {
-                    console.log(`收到${currentModel}响应块:`, chunk);
+                    console.log(`[DEBUG] 收到${currentModel}响应块:`, chunk);
+                    
+                    // 接收到第一个块后清除状态消息
+                    if (fullResponse === '') {
+                        aiMessageContent.textContent = '';
+                    }
+                    
                     fullResponse += chunk;
                     aiMessageContent.textContent = fullResponse;
                     smoothScrollTo(chatMessages, chatMessages.scrollHeight);
                 }
                 
-                console.log(`${currentModel}完整响应:`, fullResponse);
+                console.log(`[DEBUG] ${currentModel}完整响应:`, fullResponse);
             } catch (streamError) {
-                console.error(`处理${currentModel}响应流时出错:`, streamError);
+                console.error(`[ERROR] 处理${currentModel}响应流时出错:`, streamError);
                 
                 // 如果流处理中发生错误但已经有部分响应，则保留它
                 if (fullResponse) {
                     aiMessageContent.innerHTML = fullResponse + 
                         `<br><span style="color:red">⚠️ 警告: 响应中断 - ${streamError.message}</span>`;
                 } else {
-                    aiMessageContent.innerHTML = 
-                        `<span style="color:red">⚠️ 错误: ${streamError.message || '接收响应时出错'}</span>`;
+                    // 为Deepseek添加特别的错误提示
+                    if (currentModel === 'deepseek') {
+                        aiMessageContent.innerHTML = 
+                            `<span style="color:red">⚠️ 阿里云Deepseek错误: ${streamError.message || '连接或解析响应时出错'}</span><br>` +
+                            `<span style="color:#666">请检查控制台日志获取详细信息，或联系管理员。</span>`;
+                    } else {
+                        aiMessageContent.innerHTML = 
+                            `<span style="color:red">⚠️ 错误: ${streamError.message || '接收响应时出错'}</span>`;
+                    }
                 }
             }
 
@@ -495,10 +517,18 @@ async function handleSendMessage() {
             }
             
         } catch (error) {
-            console.error(`${currentModel}请求错误:`, error);
+            console.error(`[ERROR] ${currentModel}请求错误:`, error);
             
-            // 直接使用现有消息div显示错误
-            aiMessageContent.innerHTML = `<span style="color:red">⚠️ 错误: ${error.message || '发生未知错误'}</span>`;
+            // 为Deepseek添加特别的错误提示
+            if (currentModel === 'deepseek') {
+                aiMessageContent.innerHTML = 
+                    `<span style="color:red">⚠️ 阿里云Deepseek请求失败: ${error.message || '未知错误'}</span><br>` +
+                    `<span style="color:#666">可能原因: API密钥无效、网络问题或格式不兼容。</span>`;
+            } else {
+                // 直接使用现有消息div显示错误
+                aiMessageContent.innerHTML = 
+                    `<span style="color:red">⚠️ 错误: ${error.message || '请求失败'}</span>`;
+            }
             
             if (currentModel === 'deepseek') {
                 aiMessageContent.innerHTML += '<br><span style="color:orange">请检查控制台以获取详细调试信息</span>';
