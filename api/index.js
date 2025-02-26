@@ -283,6 +283,12 @@ const handler = async (req, res) => {
                     for (const line of lines) {
                         if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
                         
+                        // 忽略id行和event行
+                        if (line.startsWith('id:') || line.startsWith('event:') || line.startsWith(':')) {
+                            console.log('[DEBUG] 忽略元数据行:', line);
+                            continue;
+                        }
+                        
                         console.log('[DEBUG] 处理Deepseek响应行:', line);
                         
                         if (line.startsWith('data: ')) {
@@ -293,7 +299,33 @@ const handler = async (req, res) => {
                                 // 提取文本 - 根据阿里云API的实际响应格式调整
                                 let content = '';
                                 
-                                if (data.output?.text) {
+                                if (data.output?.choices?.[0]?.message?.reasoning_content) {
+                                    // 阿里云Deepseek特有格式 - 使用reasoning_content
+                                    content = data.output.choices[0].message.reasoning_content;
+                                    
+                                    // 检查是否完成
+                                    const finishReason = data.output.choices[0].finish_reason;
+                                    if (finishReason && finishReason !== "null") {
+                                        console.log('[DEBUG] 检测到完成状态:', finishReason);
+                                        // 在下一个响应块中发送完成信号
+                                        setTimeout(() => {
+                                            res.write('data: [DONE]\n\n');
+                                        }, 100);
+                                    }
+                                    
+                                    // 存储上一次的内容，以便计算增量
+                                    const lastContent = responseText || '';
+                                    if (content && content !== lastContent) {
+                                        // 只发送新增的部分
+                                        const increment = content.substring(lastContent.length);
+                                        responseText = content; // 更新存储的完整内容
+                                        const safeText = increment.replace(/"/g, '\\"');
+                                        console.log('[DEBUG] 发送到客户端的增量内容:', safeText);
+                                        res.write(`data: {"choices":[{"delta":{"content":"${safeText}"}}]}\n\n`);
+                                    }
+                                    // 避免处理其他分支
+                                    continue;
+                                } else if (data.output?.text) {
                                     // 阿里云格式1
                                     content = data.output.text;
                                 } else if (data.output?.choices?.[0]?.message?.content) {
